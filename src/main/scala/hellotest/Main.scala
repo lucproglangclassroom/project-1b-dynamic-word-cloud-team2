@@ -4,6 +4,10 @@ import scala.io.Source
 import scopt.OParser
 import java.io.File
 import scala.collection.mutable
+import org.jfree.chart.{ChartFactory, ChartUtils}
+import org.jfree.data.category.DefaultCategoryDataset
+import javax.imageio.ImageIO
+import java.awt.image.BufferedImage
 
 case class Config(
   cloudSize: Int = 10,
@@ -16,13 +20,13 @@ case class Config(
 
 object Main {
   def main(args: Array[String]): Unit = {
+    System.setProperty("java.awt.headless", "true") // Enable headless mode for environments without GUI
     val config = parseArguments(args).getOrElse {
       sys.exit(1) // Exit if argument parsing fails
     }
     processInput(config)
   }
 
-  // Refactored parseArguments method
   def parseArguments(args: Array[String]): Option[Config] = {
     val builder = OParser.builder[Config]
     val parser = {
@@ -84,6 +88,7 @@ object Main {
           // Update word cloud output if stepCount reaches updateFrequency
           if (stepCount >= config.updateFrequency && wordCloud.isReady) {
             println(wordCloud.getTopWords.map { case (word, count) => s"$word: $count" }.mkString(" "))
+            visualizeWordCloud(wordCloud.getTopWords) // Generate and save the word cloud visualization
             stepCount = 0 // Reset step count
           }
 
@@ -97,6 +102,31 @@ object Main {
     Source.fromFile(new File(filePath)).getLines()
       .flatMap(line => Option(line).map(_.toLowerCase.nn))
       .toSet
+  }
+
+  def visualizeWordCloud(words: List[(String, Int)]): Unit = {
+    val dataset = new DefaultCategoryDataset()
+
+    words.foreach { case (word, count) =>
+      dataset.addValue(count, "Frequency", word)
+    }
+
+    val chart = ChartFactory.createBarChart(
+      "Word Frequency",
+      "Words",
+      "Frequency",
+      dataset
+    )
+
+    // Create a BufferedImage and draw the chart on it
+    val bufferedImage = chart.nn.createBufferedImage(800, 600)
+    try {
+      // Save the image to a file
+      ImageIO.write(bufferedImage, "png", new File("word_cloud.png"))
+      // println("Word cloud saved as 'word_cloud.png'.")
+    } catch {
+      case e: Exception => e.printStackTrace()
+    }
   }
 }
 
@@ -113,10 +143,7 @@ class WordCloud(cloudSize: Int, minLength: Int, windowSize: Int, ignoreList: Set
         val oldestWord = wordQueue.dequeue()
         wordCounts(oldestWord) -= 1
         if (wordCounts(oldestWord) == 0) {
-          wordCounts.remove(oldestWord) match {
-            case Some(_) => // Word removed
-            case None => // Word not found (this case shouldn't happen)
-          }
+          wordCounts.remove(oldestWord) // Word removed
         }
       }
     }
