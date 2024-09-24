@@ -121,9 +121,10 @@ object Main {
     // Create a BufferedImage and draw the chart on it
     val bufferedImage = chart.nn.createBufferedImage(800, 600)
     try {
-      // Save the image to a file
-      ImageIO.write(bufferedImage, "png", new File("word_cloud.png"))
-      // println("Word cloud saved as 'word_cloud.png'.")
+      val success = ImageIO.write(bufferedImage, "png", new File("word_cloud.png"))
+      if (!success) {
+        println("Failed to save the word cloud image.")
+      }
     } catch {
       case e: Exception => e.printStackTrace()
     }
@@ -143,7 +144,7 @@ class WordCloud(cloudSize: Int, minLength: Int, windowSize: Int, ignoreList: Set
         val oldestWord = wordQueue.dequeue()
         wordCounts(oldestWord) -= 1
         if (wordCounts(oldestWord) == 0) {
-          wordCounts.remove(oldestWord) // Word removed
+          wordCounts.remove(oldestWord).foreach(_ => ()) // Discard the removed value
         }
       }
     }
