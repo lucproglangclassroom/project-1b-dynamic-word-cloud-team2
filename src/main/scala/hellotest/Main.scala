@@ -8,6 +8,7 @@ import org.jfree.chart.{ChartFactory, ChartUtils}
 import org.jfree.data.category.DefaultCategoryDataset
 import javax.imageio.ImageIO
 import java.awt.image.BufferedImage
+import org.slf4j.LoggerFactory
 
 case class Config(
   cloudSize: Int = 10,
@@ -19,11 +20,20 @@ case class Config(
 )
 
 object Main {
+  val logger = LoggerFactory.getLogger(Main.getClass)
+
   def main(args: Array[String]): Unit = {
     System.setProperty("java.awt.headless", "true") // Enable headless mode for environments without GUI
     val config = parseArguments(args).getOrElse {
       sys.exit(1) // Exit if argument parsing fails
     }
+ 
+    // Log the parameters
+    logger.nn.debug(
+      s"howMany=${config.cloudSize} minLength=${config.minLength} lastNWords=${config.windowSize} " +
+        s"everyKSteps=${config.updateFrequency} minFrequency=${config.minFrequency}"
+    )
+
     processInput(config)
   }
 

@@ -17,7 +17,8 @@ libraryDependencies ++= Seq(
   "org.openjfx" % "javafx-graphics" % "17",
   "org.openjfx" % "javafx-controls" % "17",
   "org.openjfx" % "javafx-fxml" % "17",
-  "org.jfree" % "jfreechart" % "1.5.3"
+  "org.jfree" % "jfreechart" % "1.5.3",
+  "org.slf4j" % "slf4j-api" % "1.7.36"
 )
 
 enablePlugins(JavaAppPackaging)
