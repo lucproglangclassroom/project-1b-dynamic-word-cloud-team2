@@ -2,15 +2,16 @@ package hellotest
 
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.must.Matchers.*
+import org.scalatest.matchers.should.Matchers
 import scala.io.Source
 import java.io.{File, PrintWriter}
 
-class StackTest extends AnyFlatSpec:
+class WordCloudSpec extends AnyFlatSpec with Matchers {
 
   "The argument parser" should "correctly parse valid arguments" in {
     val args = Array("--cloud-size", "15", "--length-at-least", "5", "--window-size", "500", "--min-frequency", "2")
     val config = Main.parseArguments(args)
-    
+
     config must not be empty
     val cfg = config.get
     cfg.cloudSize must equal(15)
@@ -22,67 +23,91 @@ class StackTest extends AnyFlatSpec:
   it should "handle missing or incorrect arguments by returning None" in {
     val args = Array("--invalid-arg", "value")
     val config = Main.parseArguments(args)
-    
+
     config must be(empty) // Parsing should fail, returning None
+  }
+
+  it should "handle invalid values for cloud size" in {
+    val args = Array("--cloud-size", "-5", "--length-at-least", "5")
+    val config = Main.parseArguments(args)
+
+    config must be(empty) // Parsing should fail due to negative cloud size
   }
 
   "The WordCloud" should "add and track words correctly" in {
     val ignoreList = Set("the", "is", "in")
     val wordCloud = new WordCloud(10, 3, 5, ignoreList, 1)
-    
+
     wordCloud.addWord("hello")
     wordCloud.addWord("world")
     wordCloud.addWord("scala")
     wordCloud.addWord("hello")
-    
+
     val topWords = wordCloud.getTopWords
-    topWords must contain ("hello" -> 2)
-    topWords must contain ("world" -> 1)
-    topWords must contain ("scala" -> 1)
+    topWords must contain("hello" -> 2)
+    topWords must contain("world" -> 1)
+    topWords must contain("scala" -> 1)
   }
 
   it should "ignore words in the ignore list" in {
     val ignoreList = Set("hello", "scala")
     val wordCloud = new WordCloud(10, 3, 5, ignoreList, 1)
-    
+
     wordCloud.addWord("hello")
     wordCloud.addWord("world")
     wordCloud.addWord("scala")
-    
+
     val topWords = wordCloud.getTopWords
-    topWords must contain ("world" -> 1)
+    topWords must contain("world" -> 1)
     topWords must not contain ("hello" -> 1)
     topWords must not contain ("scala" -> 1)
   }
 
   it should "respect the word length filter" in {
     val wordCloud = new WordCloud(10, 5, 5, Set.empty, 1) // Set minLength to 5
-    
+
     wordCloud.addWord("short")  // This word should be included since length is exactly minLength
     wordCloud.addWord("longword") // This word should also be included
+    wordCloud.addWord("tiny") // This word should be ignored
 
     val topWords = wordCloud.getTopWords
     println(s"Top words: $topWords")  // Print top words for debugging
 
-    topWords must contain ("short" -> 1) // Adjusted to accept words of exactly minLength
-    topWords must contain ("longword" -> 1)
+    topWords must contain("short" -> 1) // Adjusted to accept words of exactly minLength
+    topWords must contain("longword" -> 1)
+    topWords must not contain ("tiny" -> 1) // Verify that shorter word is ignored
   }
 
   it should "remove the oldest word when exceeding window size" in {
     val wordCloud = new WordCloud(10, 3, 3, Set.empty, 1)
-    
+
     wordCloud.addWord("word1")
     wordCloud.addWord("word2")
     wordCloud.addWord("word3")
     wordCloud.addWord("word4") // This should push "word1" out of the window
-    
+
     val topWords = wordCloud.getTopWords
     println(s"Top words after adding word4: $topWords") // Print top words for debugging
-    
+
     topWords must not contain ("word1" -> 1)
     topWords must contain ("word2" -> 1)
     topWords must contain ("word3" -> 1)
     topWords must contain ("word4" -> 1)
+  }
+
+  it should "respect the minimum frequency filter" in {
+    val ignoreList = Set.empty[String]
+    val wordCloud = new WordCloud(10, 5, 5, ignoreList, 2) // Minimum frequency set to 2
+
+    // Adding the word twice to meet the minimum frequency requirement
+    wordCloud.addWord("word1")
+    wordCloud.addWord("word1") // Now it should count as 2
+    wordCloud.addWord("word2") // This will be ignored due to frequency
+
+    val topWords = wordCloud.getTopWords
+
+    topWords must contain("word1" -> 2) // Expect "word1" to be present
+    topWords must not contain ("word2" -> 1) // "word2" should not be included
   }
 
   "The ignore list reader" should "correctly load words from a file" in {
@@ -90,14 +115,53 @@ class StackTest extends AnyFlatSpec:
     val writer = new PrintWriter(ignoreFile.nn)
     writer.write("word1\nword2\nword3\n")
     writer.close()
-    
+
     val ignoreList = Main.readIgnoreList(ignoreFile.getAbsolutePath.nn)
-    
+
     ignoreList must contain("word1")
     ignoreList must contain("word2")
     ignoreList must contain("word3")
-    
+
     ignoreFile.delete() // Cleanup temp file
   }
 
-end StackTest
+  it should "return an empty ignore list for an empty file" in {
+    val ignoreFile = File.createTempFile("ignoreEmpty", ".txt").nn
+    new PrintWriter(ignoreFile.nn).close() // Empty file
+
+    val ignoreList = Main.readIgnoreList(ignoreFile.getAbsolutePath.nn)
+
+    ignoreList must be(empty) // Verify empty ignore list
+
+    ignoreFile.delete() // Cleanup temp file
+  }
+
+  it should "handle duplicate words in the ignore list" in {
+    val ignoreFile = File.createTempFile("ignoreDuplicates", ".txt").nn
+    val writer = new PrintWriter(ignoreFile.nn)
+    writer.write("word1\nword1\nword2\nword3\n")
+    writer.close()
+
+    val ignoreList = Main.readIgnoreList(ignoreFile.getAbsolutePath.nn)
+
+    ignoreList must contain("word1") // Check presence of duplicate word
+    ignoreList must contain("word2")
+    ignoreList must contain("word3")
+
+    ignoreFile.delete() // Cleanup temp file
+  }
+
+  it should "handle special characters in words" in {
+    val ignoreList = Set.empty[String]
+    val wordCloud = new WordCloud(10, 3, 5, ignoreList, 1)
+
+    wordCloud.addWord("hello!")
+    wordCloud.addWord("world?")
+    wordCloud.addWord("scala#")
+
+    val topWords = wordCloud.getTopWords
+    topWords.toSet should contain("hello!" -> 1)
+    topWords.toSet should contain("world?" -> 1)
+    topWords.toSet should contain("scala#" -> 1)
+  } 
+}

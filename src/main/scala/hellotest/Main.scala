@@ -9,6 +9,7 @@ import org.jfree.data.category.DefaultCategoryDataset
 import javax.imageio.ImageIO
 import java.awt.image.BufferedImage
 import org.slf4j.LoggerFactory
+import scala.runtime.stdLibPatches.Predef.nn
 
 case class Config(
   cloudSize: Int = 10,
@@ -44,9 +45,11 @@ object Main {
       OParser.sequence(
         programName("topwords"),
         opt[Int]('c', "cloud-size")
+          .validate(x => if (x <= 0) failure("Cloud size must be positive.") else success)
           .action((x, c) => c.copy(cloudSize = x))
           .text("size of the word cloud (default: 10)"),
         opt[Int]('l', "length-at-least")
+          .validate(x => if (x < 0) failure("Minimum length must be non-negative.") else success)
           .action((x, c) => c.copy(minLength = x))
           .text("minimum length of words to consider (default: 6)"),
         opt[Int]('w', "window-size")
@@ -56,16 +59,25 @@ object Main {
           .action((x, c) => c.copy(ignoreListFile = Some(x)))
           .text("file containing words to ignore"),
         opt[Int]('f', "min-frequency")
+          .validate(x => if (x < 1) failure("Minimum frequency must be at least 1.") else success)
           .action((x, c) => c.copy(minFrequency = x))
           .text("minimum frequency for a word to be included in the cloud (default: 1)"),
         opt[Int]('u', "update-frequency")
           .action((x, c) => c.copy(updateFrequency = x))
-          .text("number of steps before updating the word cloud (default: 1)")
+          .text("number of steps before updating the word cloud (default: 1)"),
+        help("help") // Help option
       )
     }
 
-    OParser.parse(parser, args, Config())
+    OParser.parse(parser, args, Config()) match {
+      case Some(config) => 
+        println(s"Parsed configuration: $config") // Debug output to check parsed values
+        Some(config)
+      case _ => None // Invalid arguments result in None
+    }
   }
+
+
 
   def processInput(config: Config): Unit = {
     val ignoreList = config.ignoreListFile.map(readIgnoreList).getOrElse(Set.empty)
@@ -147,18 +159,21 @@ class WordCloud(cloudSize: Int, minLength: Int, windowSize: Int, ignoreList: Set
 
   def addWord(word: String): Unit = {
     if (!ignoreList.contains(word) && word.length >= minLength) {
-      wordQueue.enqueue(word)
-      wordCounts(word) += 1
+      // Increment word count in a map
+      wordCounts.update(word, wordCounts.getOrElse(word, 0) + 1)
 
-      if (wordQueue.size > windowSize) {
+      // Check and manage the sliding window
+      if (wordQueue.size >= windowSize) {
         val oldestWord = wordQueue.dequeue()
-        wordCounts(oldestWord) -= 1
-        if (wordCounts(oldestWord) == 0) {
-          wordCounts.remove(oldestWord).foreach(_ => ()) // Discard the removed value
+        wordCounts.update(oldestWord, wordCounts.get(oldestWord).getOrElse(0) - 1)
+        if (wordCounts(oldestWord) <= 0) {
+          wordCounts.remove(oldestWord) // Remove if count goes to zero
         }
       }
+      wordQueue.enqueue(word)
     }
   }
+
 
   def isReady: Boolean = wordQueue.size >= windowSize
 
