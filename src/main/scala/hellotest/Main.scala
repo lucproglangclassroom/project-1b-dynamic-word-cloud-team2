@@ -153,30 +153,33 @@ object Main {
   }
 }
 
-class WordCloud(cloudSize: Int, minLength: Int, windowSize: Int, ignoreList: Set[String], minFrequency: Int) {
-  private val wordCounts = mutable.Map[String, Int]().withDefaultValue(0)
-  private val wordQueue = mutable.Queue[String]()
+class WordCloud(maxSize: Int, minLength: Int, windowSize: Int, ignoreList: Set[String], minFrequency: Int) {
+  private var wordCounts = Map.empty[String, Int]
+  private var wordOrder = List.empty[String]
 
   def addWord(word: String): Unit = {
-    if (!ignoreList.contains(word) && word.length >= minLength) {
-      // Increment word count in a map
-      wordCounts.update(word, wordCounts.getOrElse(word, 0) + 1)
+    // Use Option to handle the potential null input
+    Option(word).foreach { w =>
+      val normalizedWord = w.toLowerCase // Normalize the word to lowercase
+      if (!ignoreList.contains(normalizedWord.nn) && normalizedWord.nn.length >= minLength) {
+        // Ensure normalizedWord is treated as a String
+        val count = wordCounts.getOrElse(normalizedWord.nn, 0) + 1
+        wordCounts = wordCounts.updated(normalizedWord.nn, count)
 
-      // Check and manage the sliding window
-      if (wordQueue.size >= windowSize) {
-        val oldestWord = wordQueue.dequeue()
-        wordCounts.update(oldestWord, wordCounts.get(oldestWord).getOrElse(0) - 1)
-        if (wordCounts(oldestWord) <= 0) {
-          wordCounts.remove(oldestWord) // Remove if count goes to zero
+        // Maintain the word order and remove the oldest word if necessary
+        wordOrder = (normalizedWord.nn :: wordOrder).distinct
+        if (wordOrder.size > windowSize) {
+          val oldestWord = wordOrder.last
+          wordCounts -= oldestWord
+          wordOrder = wordOrder.init // Remove last element
         }
       }
-      wordQueue.enqueue(word)
     }
   }
 
+  def getTopWords: List[(String, Int)] = {
+    wordCounts.filter(_._2 >= minFrequency).toList.sortBy(-_._2).take(maxSize)
+  }
 
-  def isReady: Boolean = wordQueue.size >= windowSize
-
-  def getTopWords: List[(String, Int)] =
-    wordCounts.filter { case (_, count) => count >= minFrequency }.toList.sortBy(-_._2).take(cloudSize)
+  def isReady: Boolean = wordOrder.size >= windowSize // Use wordOrder instead of wordQueue
 }
