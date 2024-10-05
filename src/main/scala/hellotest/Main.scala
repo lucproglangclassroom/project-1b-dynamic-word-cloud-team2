@@ -28,14 +28,15 @@ object Main {
     val config = parseArguments(args).getOrElse {
       sys.exit(1) // Exit if argument parsing fails
     }
- 
+
     // Log the parameters
     logger.nn.debug(
-      s"howMany=${config.cloudSize} minLength=${config.minLength} lastNWords=${config.windowSize} " +
-        s"everyKSteps=${config.updateFrequency} minFrequency=${config.minFrequency}"
+      s"cloudSize=${config.cloudSize} minLength=${config.minLength} windowSize=${config.windowSize} " +
+        s"updateFrequency=${config.updateFrequency} minFrequency=${config.minFrequency}"
     )
 
-    processInput(config)
+    // Call the new runWordCloud method
+    runWordCloud(config)
   }
 
   def parseArguments(args: Array[String]): Option[Config] = {
@@ -77,8 +78,8 @@ object Main {
     }
   }
 
-
-  def processInput(config: Config): Unit = {
+  // New method to handle word cloud processing
+  def runWordCloud(config: Config): Unit = {
     val ignoreList = config.ignoreListFile.map(readIgnoreList).getOrElse(Set.empty)
     val wordCloud = new WordCloud(config.cloudSize, config.minLength, config.windowSize, ignoreList, config.minFrequency)
     val lines = Source.stdin.getLines()
