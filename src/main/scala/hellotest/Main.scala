@@ -45,11 +45,9 @@ object Main {
       OParser.sequence(
         programName("topwords"),
         opt[Int]('c', "cloud-size")
-          .validate(x => if (x <= 0) failure("Cloud size must be positive.") else success)
           .action((x, c) => c.copy(cloudSize = x))
           .text("size of the word cloud (default: 10)"),
         opt[Int]('l', "length-at-least")
-          .validate(x => if (x < 0) failure("Minimum length must be non-negative.") else success)
           .action((x, c) => c.copy(minLength = x))
           .text("minimum length of words to consider (default: 6)"),
         opt[Int]('w', "window-size")
@@ -59,25 +57,16 @@ object Main {
           .action((x, c) => c.copy(ignoreListFile = Some(x)))
           .text("file containing words to ignore"),
         opt[Int]('f', "min-frequency")
-          .validate(x => if (x < 1) failure("Minimum frequency must be at least 1.") else success)
           .action((x, c) => c.copy(minFrequency = x))
           .text("minimum frequency for a word to be included in the cloud (default: 1)"),
         opt[Int]('u', "update-frequency")
           .action((x, c) => c.copy(updateFrequency = x))
-          .text("number of steps before updating the word cloud (default: 1)"),
-        help("help") // Help option
+          .text("number of steps before updating the word cloud (default: 1)")
       )
     }
 
-    OParser.parse(parser, args, Config()) match {
-      case Some(config) => 
-        println(s"Parsed configuration: $config") // Debug output to check parsed values
-        Some(config)
-      case _ => None // Invalid arguments result in None
-    }
+    OParser.parse(parser, args, Config())
   }
-
-
 
   def processInput(config: Config): Unit = {
     val ignoreList = config.ignoreListFile.map(readIgnoreList).getOrElse(Set.empty)
@@ -153,33 +142,27 @@ object Main {
   }
 }
 
-class WordCloud(maxSize: Int, minLength: Int, windowSize: Int, ignoreList: Set[String], minFrequency: Int) {
-  private var wordCounts = Map.empty[String, Int]
-  private var wordOrder = List.empty[String]
+class WordCloud(cloudSize: Int, minLength: Int, windowSize: Int, ignoreList: Set[String], minFrequency: Int) {
+  private val wordCounts = mutable.Map[String, Int]().withDefaultValue(0)
+  private val wordQueue = mutable.Queue[String]()
 
   def addWord(word: String): Unit = {
-    // Use Option to handle the potential null input
-    Option(word).foreach { w =>
-      val normalizedWord = w.toLowerCase // Normalize the word to lowercase
-      if (!ignoreList.contains(normalizedWord.nn) && normalizedWord.nn.length >= minLength) {
-        // Ensure normalizedWord is treated as a String
-        val count = wordCounts.getOrElse(normalizedWord.nn, 0) + 1
-        wordCounts = wordCounts.updated(normalizedWord.nn, count)
+    if (!ignoreList.contains(word) && word.length >= minLength) {
+      wordQueue.enqueue(word)
+      wordCounts(word) += 1
 
-        // Maintain the word order and remove the oldest word if necessary
-        wordOrder = (normalizedWord.nn :: wordOrder).distinct
-        if (wordOrder.size > windowSize) {
-          val oldestWord = wordOrder.last
-          wordCounts -= oldestWord
-          wordOrder = wordOrder.init // Remove last element
+      if (wordQueue.size > windowSize) {
+        val oldestWord = wordQueue.dequeue()
+        wordCounts(oldestWord) -= 1
+        if (wordCounts(oldestWord) == 0) {
+          wordCounts.remove(oldestWord).foreach(_ => ()) // Discard the removed value
         }
       }
     }
   }
 
-  def getTopWords: List[(String, Int)] = {
-    wordCounts.filter(_._2 >= minFrequency).toList.sortBy(-_._2).take(maxSize)
-  }
+  def isReady: Boolean = wordQueue.size >= windowSize
 
-  def isReady: Boolean = wordOrder.size >= windowSize // Use wordOrder instead of wordQueue
+  def getTopWords: List[(String, Int)] =
+    wordCounts.filter { case (_, count) => count >= minFrequency }.toList.sortBy(-_._2).take(cloudSize)
 }
