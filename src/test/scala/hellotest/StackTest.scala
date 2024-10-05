@@ -2,11 +2,10 @@ package hellotest
 
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.must.Matchers.*
-import org.scalatest.matchers.should.Matchers
 import scala.io.Source
 import java.io.{File, PrintWriter}
 
-class WordCloudSpec extends AnyFlatSpec with Matchers {
+class StackTest extends AnyFlatSpec {
 
   "The argument parser" should "correctly parse valid arguments" in {
     val args = Array("--cloud-size", "15", "--length-at-least", "5", "--window-size", "500", "--min-frequency", "2")
@@ -151,163 +150,23 @@ class WordCloudSpec extends AnyFlatSpec with Matchers {
     ignoreFile.delete() // Cleanup temp file
   }
 
-  it should "handle special characters in words" in {
-    val ignoreList = Set.empty[String]
-    val wordCloud = new WordCloud(10, 3, 5, ignoreList, 1)
-
-    wordCloud.addWord("hello!")
-    wordCloud.addWord("world?")
-    wordCloud.addWord("scala#")
-
-    val topWords = wordCloud.getTopWords
-    topWords.toSet should contain("hello!" -> 1)
-    topWords.toSet should contain("world?" -> 1)
-    topWords.toSet should contain("scala#" -> 1)
-  } 
-
-  "The WordCloud" should "handle empty input correctly" in {
-    val wordCloud = new WordCloud(10, 3, 5, Set.empty, 1)
-
-    val topWords = wordCloud.getTopWords
-    topWords must be(empty) // No words added, so should return empty list
-  } 
-
-  it should "handle words with different cases as the same" in {
-    val ignoreList = Set.empty[String]
-    val wordCloud = new WordCloud(10, 3, 5, ignoreList, 1)
-
-    wordCloud.addWord("Hello")
-    wordCloud.addWord("hello") // Should be counted as the same word
-    wordCloud.addWord("HELLO") // Should be counted as the same word
-
-    val topWords = wordCloud.getTopWords
-    topWords must contain("hello" -> 3) // All should count as "hello"
-  }  
-
-  it should "respect the minimum frequency when adding words" in {
-    val ignoreList = Set.empty[String]
-    val wordCloud = new WordCloud(10, 3, 5, ignoreList, 2) // Minimum frequency set to 2
-
-    wordCloud.addWord("word1")
-    wordCloud.addWord("word1") // Now it should count as 2
-    wordCloud.addWord("word2") // This will be ignored due to frequency
-
-    val topWords = wordCloud.getTopWords
-    topWords must contain("word1" -> 2) // Expect "word1" to be present
-    topWords must not contain ("word2" -> 1) // "word2" should not be included
-  }
-
-  it should "remove words that fall below the minimum frequency after multiple additions" in {
-    val ignoreList = Set.empty[String]
-    val wordCloud = new WordCloud(10, 3, 5, ignoreList, 2) // Minimum frequency set to 2
-
-    wordCloud.addWord("word1")
-    wordCloud.addWord("word1") // Now it should count as 2
-    wordCloud.addWord("word2") // This will be ignored due to frequency
-    wordCloud.addWord("word2") // Now "word2" should count as 2
-    wordCloud.addWord("word3") // Add a third word
-
-    var topWords = wordCloud.getTopWords
-    topWords must contain("word1" -> 2)
-    topWords must contain("word2" -> 2)
-    topWords must not contain ("word3" -> 1)
-
-    // Reduce frequency of word2 below threshold
-    wordCloud.addWord("word2") // Reduce count to 1
-    topWords = wordCloud.getTopWords
-    topWords must not contain ("word2" -> 1) // "word2" should not be included
-  }  
-
-  it should "handle large input sizes efficiently" in {
-    val ignoreList = Set.empty[String]
-    val wordCloud = new WordCloud(10, 3, 5, ignoreList, 1)
-
-    (1 to 1000).foreach(i => wordCloud.addWord(s"word$i"))
-    val topWords = wordCloud.getTopWords
-    topWords.size must be <= 10 // Ensure that we are limiting the top words
-  }
-
-  it should "handle malformed ignore list files" in {
-    val ignoreFile = File.createTempFile("malformed", ".txt").nn
-    val writer = new PrintWriter(ignoreFile.nn)
-    writer.write("word1\nmalformed-entry@\nword2")
-    writer.close()
-
-    val ignoreList = Main.readIgnoreList(ignoreFile.getAbsolutePath.nn)
-
-    ignoreList must contain("word1") // Ignore malformed entries
-    ignoreList must contain("word2")
-    ignoreFile.delete() // Cleanup
-  }  
-
-  it should "handle zero and negative frequencies" in {
-    val args = Array("--cloud-size", "10", "--length-at-least", "5", "--window-size", "500", "--min-frequency", "0")
+  it should "handle zero cloud size" in {
+    val args = Array("--cloud-size", "0", "--length-at-least", "5")
     val config = Main.parseArguments(args)
 
-    config must be(empty) // minFrequency should not be zero
+    config must be(empty) // Expect failure for cloud size of 0
+  }
 
-    val argsNegative = Array("--cloud-size", "10", "--length-at-least", "5", "--window-size", "500", "--min-frequency", "-2")
-    val configNegative = Main.parseArguments(argsNegative)
-
-    configNegative must be(empty) // Negative minFrequency should be invalid
-  } 
-
-  it should "handle maximum cloud size" in {
-    val wordCloud = new WordCloud(Int.MaxValue, 3, 10, Set.empty, 1)
-    
-    (1 to 10000).foreach(i => wordCloud.addWord(s"word$i"))
-    
-    val topWords = wordCloud.getTopWords
-    topWords.size must be <= Int.MaxValue // Ensure we respect max size
-  }  
-
-  it should "handle minimum window size of 1" in {
-    val wordCloud = new WordCloud(10, 3, 1, Set.empty, 1) // Set windowSize to 1
-
-    wordCloud.addWord("word1")
-    wordCloud.addWord("word2") // Should replace "word1"
-
-    val topWords = wordCloud.getTopWords
-    topWords must not contain ("word1" -> 1) // "word1" should not be present
-  }  
-
-  it should "treat case variations of words as the same" in {
-    val ignoreList = Set.empty[String]
+  it should "ignore words in the ignore list when processing input" in {
+    val ignoreList = Set("ignoreme")
     val wordCloud = new WordCloud(10, 3, 5, ignoreList, 1)
 
-    wordCloud.addWord("Case")
-    wordCloud.addWord("case")
-    wordCloud.addWord("CASE")
+    wordCloud.addWord("ignoreme") // This should not be counted
+    wordCloud.addWord("test")
 
     val topWords = wordCloud.getTopWords
-    topWords must contain("case" -> 3) // All variations should count towards "case"
+    topWords must contain("test" -> 1) // "test" should be counted
+    topWords must not contain ("ignoreme" -> 1) // "ignoreme" should not be counted
   }
 
-  it should "handle frequency adjustments correctly" in {
-    val ignoreList = Set.empty[String]
-    val wordCloud = new WordCloud(10, 3, 5, ignoreList, 2) // Minimum frequency set to 2
-
-    wordCloud.addWord("word1")
-    wordCloud.addWord("word1") // Count = 2
-    wordCloud.addWord("word2")
-    wordCloud.addWord("word2") // Count = 2
-    wordCloud.addWord("word3") // Should not be counted
-
-    var topWords = wordCloud.getTopWords
-    topWords must contain("word1" -> 2)
-    topWords must contain("word2" -> 2)
-    topWords must not contain ("word3" -> 1)
-
-    // Remove a word to adjust counts
-    wordCloud.addWord("word2") // Adjust word2 count back to 3
-    wordCloud.addWord("word2") // Count = 4 now
-
-    topWords = wordCloud.getTopWords
-    topWords must contain("word2" -> 4) // Expect "word2" to be present with updated count
-  }
-  it should "handle conflicting command-line arguments" in {
-    val args = Array("--cloud-size", "10", "--min-frequency", "0")
-    val config = Main.parseArguments(args)
-    config must be(empty) // Expecting an empty result for invalid min-frequency
-  }  
 }

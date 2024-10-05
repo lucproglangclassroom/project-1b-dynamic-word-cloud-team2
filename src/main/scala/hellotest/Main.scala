@@ -65,8 +65,18 @@ object Main {
       )
     }
 
-    OParser.parse(parser, args, Config())
+    // Parse the arguments
+    OParser.parse(parser, args, Config()).flatMap { config =>
+      // Validate the parsed config
+      if (config.cloudSize <= 0 || config.minLength < 0 || config.windowSize <= 0 || config.minFrequency < 0 || config.updateFrequency <= 0) {
+        logger.nn.error("Invalid configuration values. Ensure cloud size is positive and all other values are non-negative, with window size/update frequency greater than zero.")
+        None // Return None if validation fails
+      } else {
+        Some(config) // Return the valid config
+      }
+    }
   }
+
 
   def processInput(config: Config): Unit = {
     val ignoreList = config.ignoreListFile.map(readIgnoreList).getOrElse(Set.empty)
