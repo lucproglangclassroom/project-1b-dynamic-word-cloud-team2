@@ -10,6 +10,9 @@ import java.awt.image.BufferedImage
 import javax.imageio.ImageIO
 import scala.runtime.stdLibPatches.Predef.nn
 import scala.util.Random
+import org.jfree.chart.ChartFactory
+import org.jfree.chart.plot.PlotOrientation
+import org.jfree.data.category.DefaultCategoryDataset
 
 case class Config(
   cloudSize: Int = 10,
@@ -113,6 +116,7 @@ object Main {
           if (stepCount >= config.updateFrequency && wordCloud.isReady) {
             println(wordCloud.getTopWords.map { case (word, count) => s"$word: $count" }.mkString(" "))
             visualizeWordCloud(wordCloud.getTopWords) // Generate and save the word cloud visualization
+            visualizeWordCloudBarChart(wordCloud.getTopWords) // Generate and save the word cloud visualization
             stepCount = 0 // Reset step count
           }
 
@@ -182,6 +186,34 @@ object Main {
         case e: Exception => e.printStackTrace()
       }
   }
+
+
+  def visualizeWordCloudBarChart(words: List[(String, Int)]): Unit = {
+    val dataset = new DefaultCategoryDataset()
+
+    words.foreach { case (word, count) =>
+      dataset.addValue(count, "Frequency", word)
+    }
+
+    val chart = ChartFactory.createBarChart(
+      "Word Frequency",
+      "Words",
+      "Frequency",
+      dataset
+    )
+
+    // Create a BufferedImage and draw the chart on it
+    val bufferedImage = chart.nn.createBufferedImage(800, 600)
+    try {
+      val success = ImageIO.write(bufferedImage, "png", new File("word_cloud_frequency_bar_chart.png"))
+      if (!success) {
+        println("Failed to save the word cloud image.")
+      }
+    } catch {
+      case e: Exception => e.printStackTrace()
+    }
+  }
+
 }
 
 class WordCloud(cloudSize: Int, minLength: Int, windowSize: Int, ignoreList: Set[String], minFrequency: Int) {
