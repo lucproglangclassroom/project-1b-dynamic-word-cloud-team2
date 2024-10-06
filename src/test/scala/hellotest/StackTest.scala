@@ -8,7 +8,7 @@ import java.nio.file.{Files, Paths}
 
 import org.scalatest.matchers.should.Matchers
 
-class ArgumentParserTest extends AnyFlatSpec with Matchers {
+class StackTest extends AnyFlatSpec with Matchers {
 
   "The argument parser" should "correctly parse valid arguments" in {
     val args = Array("--cloud-size", "15", "--length-at-least", "5", "--window-size", "500", "--min-frequency", "2")
@@ -290,5 +290,24 @@ class ArgumentParserTest extends AnyFlatSpec with Matchers {
 
     val topWords = wordCloud.getTopWords
     topWords must contain("test" -> 3) // "test" should be counted as 3
+  }
+
+  it should "return an empty ignore list for an invalid file path" in {
+    val ignoreList = Main.readIgnoreList("invalid/path/to/file.txt")
+    ignoreList must be(empty) // Expect empty list for invalid path
+  }
+
+  it should "handle negative values for non-negative parameters" in {
+    val args = Array("--cloud-size", "-1", "--length-at-least", "5")
+    val config = Main.parseArguments(args)
+
+    config must be(empty) // Parsing should fail due to negative cloud size
+  }
+
+  it should "return None when required arguments are missing" in {
+    val args = Array("--length-at-least", "5")
+    val config = Main.parseArguments(args)
+
+    config must be(empty) // Required argument --cloud-size is missing
   }
 }

@@ -4,12 +4,12 @@ import scala.io.Source
 import scopt.OParser
 import java.io.File
 import scala.collection.mutable
-import org.jfree.chart.{ChartFactory, ChartUtils}
-import org.jfree.data.category.DefaultCategoryDataset
-import javax.imageio.ImageIO
-import java.awt.image.BufferedImage
 import org.slf4j.LoggerFactory
+import java.awt.{Color, Font, Graphics2D}
+import java.awt.image.BufferedImage
+import javax.imageio.ImageIO
 import scala.runtime.stdLibPatches.Predef.nn
+import scala.util.Random
 
 case class Config(
   cloudSize: Int = 10,
@@ -46,9 +46,11 @@ object Main {
       OParser.sequence(
         programName("topwords"),
         opt[Int]('c', "cloud-size")
+          .required() // Make cloud-size a required argument
           .action((x, c) => c.copy(cloudSize = x))
           .text("size of the word cloud (default: 10)"),
         opt[Int]('l', "length-at-least")
+          .required() // Make length-at-least a required argument
           .action((x, c) => c.copy(minLength = x))
           .text("minimum length of words to consider (default: 6)"),
         opt[Int]('w', "window-size")
@@ -121,35 +123,64 @@ object Main {
   }
 
   def readIgnoreList(filePath: String): Set[String] = {
-    Source.fromFile(new File(filePath)).getLines()
-      .flatMap(line => Option(line).map(_.toLowerCase.nn))
-      .toSet
+    try {
+      Source.fromFile(new File(filePath)).getLines()
+        .flatMap(line => Option(line).map(_.toLowerCase.nn))
+        .toSet
+    } catch {
+      case _: java.io.FileNotFoundException => 
+        println(s"Warning: Ignore list file '$filePath' not found.")
+        Set.empty[String]
+      case ex: Exception => 
+        println(s"Error reading ignore list file: ${ex.getMessage}")
+        Set.empty[String]
+    }
   }
 
+// Method to create a classic NLP-style word cloud with border, background, and random word colors
   def visualizeWordCloud(words: List[(String, Int)]): Unit = {
-    val dataset = new DefaultCategoryDataset()
+      val imageWidth = 800
+      val imageHeight = 600
+      val bufferedImage = new BufferedImage(imageWidth, imageHeight, BufferedImage.TYPE_INT_ARGB)
+      val graphics = bufferedImage.createGraphics().nn
 
-    words.foreach { case (word, count) =>
-      dataset.addValue(count, "Frequency", word)
-    }
+      // Background color
+      graphics.setColor(new Color(230, 240, 255)) // Light blue background
+      graphics.fillRect(0, 0, imageWidth, imageHeight)
 
-    val chart = ChartFactory.createBarChart(
-      "Word Frequency",
-      "Words",
-      "Frequency",
-      dataset
-    )
+      // Border color and drawing
+      graphics.setColor(Color.BLACK)
+      graphics.drawRect(0, 0, imageWidth - 1, imageHeight - 1) // Draw a border around the image
 
-    // Create a BufferedImage and draw the chart on it
-    val bufferedImage = chart.nn.createBufferedImage(800, 600)
-    try {
-      val success = ImageIO.write(bufferedImage, "png", new File("word_cloud.png"))
-      if (!success) {
-        println("Failed to save the word cloud image.")
+      val maxFontSize = 48
+      val minFontSize = 12
+      val maxFrequency = words.headOption.map(_._2).getOrElse(1)
+      val random = new Random()
+
+      words.foreach { case (word, count) =>
+        // Calculate font size based on word frequency
+        val fontSize = minFontSize + ((maxFontSize - minFontSize) * (count.toFloat / maxFrequency)).toInt
+        graphics.setFont(new Font("SansSerif", Font.BOLD, fontSize))
+
+        // Set a random color for each word
+        val wordColor = new Color(random.nextInt(256), random.nextInt(256), random.nextInt(256))
+        graphics.setColor(wordColor)
+
+        // Position words randomly within the image boundaries
+        val x = random.nextInt(imageWidth - fontSize * word.length)
+        val y = random.nextInt(imageHeight - fontSize)
+
+        graphics.drawString(word, x, y)
       }
-    } catch {
-      case e: Exception => e.printStackTrace()
-    }
+
+      graphics.dispose()
+
+      try {
+        val success = ImageIO.write(bufferedImage, "png", new File("word_cloud.png"))
+        if (!success) println("Failed to save the word cloud image.")
+      } catch {
+        case e: Exception => e.printStackTrace()
+      }
   }
 }
 

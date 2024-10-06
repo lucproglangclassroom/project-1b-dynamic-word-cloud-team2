@@ -180,7 +180,7 @@ object newMain extends WordCloudVisualizer with WordCloudRunner {
 
           if (stepCount >= config.updateFrequency && currentWordCloud.isReady) {
             println(currentWordCloud.getTopWords.map { case (word, count) => s"$word: $count" }.mkString(" "))
-            visualizeWordCloud(currentWordCloud.getTopWords, "word_cloud.png")
+            visualizeWordCloud(currentWordCloud.getTopWords, "word_cloud_newMain.png")
             stepCount = 0
           }
 
