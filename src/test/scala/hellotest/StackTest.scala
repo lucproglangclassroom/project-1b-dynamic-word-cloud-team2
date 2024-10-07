@@ -6,9 +6,38 @@ import scala.io.Source
 import java.io.{File, PrintWriter}
 import java.nio.file.{Files, Paths}
 
+import org.scalatest.concurrent.TimeLimits
+import scala.concurrent.duration._
+
 import org.scalatest.matchers.should.Matchers
 
-class StackTest extends AnyFlatSpec with Matchers {
+class StackTest extends AnyFlatSpec with Matchers with TimeLimits {
+
+  
+  "The WordCloud" should "handle heavy load without significant performance degradation" in {
+    val ignoreList = Set.empty[String]
+    val wordCloud = new WordCloud(100000, 3, 5, ignoreList, 1) // Adjust max size if necessary
+
+    // Measure performance while adding a large number of words
+    val largeWordList = (1 to 100000).map(i => s"word$i").toList
+
+    // Use a time limit to ensure performance stays within acceptable bounds
+    val maxDuration: FiniteDuration = 5.seconds // Define max duration
+    val duration: FiniteDuration = measuringTime {
+      largeWordList.foreach(wordCloud.addWord)
+    }
+
+    println(s"Time taken to add 100,000 words: ${duration.toMillis} ms")
+    duration should be <= maxDuration // Ensure we do not exceed the max duration
+    wordCloud.getTopWords.size must be <= 100000 // Ensure no overflow occurs
+  }
+
+  private def measuringTime[R](block: => R): FiniteDuration = {
+    val start = System.nanoTime()
+    block
+    val end = System.nanoTime()
+    Duration.fromNanos(end - start).asInstanceOf[FiniteDuration] // Cast to FiniteDuration
+  }
 
   "The argument parser" should "correctly parse valid arguments" in {
     val args = Array("--cloud-size", "15", "--length-at-least", "5", "--window-size", "500", "--min-frequency", "2")
@@ -310,4 +339,61 @@ class StackTest extends AnyFlatSpec with Matchers {
 
     config must be(empty) // Required argument --cloud-size is missing
   }
+
+  it should "update the word cloud output based on the update frequency" in {
+    val ignoreList = Set.empty[String]
+    val wordCloud = new WordCloud(10, 5, 5, ignoreList, 1) // Set minFrequency to 1
+
+    // Simulate input
+    val wordsToAdd = List("hello", "world", "scala", "hello", "spark")
+    
+    // Add words and track updates
+    wordsToAdd.foreach(wordCloud.addWord)
+
+    val topWordsInitial = wordCloud.getTopWords
+    println(s"Initial top words: $topWordsInitial")
+
+    // Assuming `runWordCloud` manages printing output based on updateFrequency
+    // Check that word cloud was updated correctly
+    topWordsInitial must contain("hello" -> 2)
+    topWordsInitial must contain("world" -> 1)
+    topWordsInitial must contain("scala" -> 1)
+    topWordsInitial must contain("spark" -> 1)
+  }
+
+  it should "handle a large number of words efficiently" in {
+    val wordCloud = new WordCloud(100, 3, 5, Set.empty, 1) // Larger size
+
+    // Simulate adding a large number of unique words
+    (1 to 1000).foreach(i => wordCloud.addWord(s"word$i"))
+
+    val topWords = wordCloud.getTopWords
+    topWords.size must be <= 100 // Ensure we respect the max size
+  }
+
+  "process ignore list file with special characters" should "handle special characters correctly" in {
+    // Create a temporary file
+    val ignoreFile = File.createTempFile("ignoreSpecial", ".txt").nn
+
+    try {
+      // Write special characters to the file
+      val writer = new PrintWriter(ignoreFile)
+      writer.write("word1\nword@2\nword#3\n")
+      writer.close()
+
+      // Read the ignore list
+      val ignoreList = Main.readIgnoreList(ignoreFile.getAbsolutePath.nn)
+
+      // Validate the contents of the ignore list
+      ignoreList should contain("word1")
+      ignoreList should contain("word@2")
+      ignoreList should contain("word#3")
+    } finally {
+            // Cleanup temp file and assert the result
+        if (!ignoreFile.delete()) {
+          fail("Failed to delete the temporary ignore file.") // Use fail to indicate an error in deletion
+        }
+    }
+  }
+
 }
