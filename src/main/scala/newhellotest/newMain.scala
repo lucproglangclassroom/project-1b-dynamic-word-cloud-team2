@@ -41,11 +41,15 @@ case class DynamicWordCloud(
     if (ignoreList.contains(word) || word.length < minLength) {
       this
     } else {
+      // Create an updated queue of words
       val updatedQueue = (word :: wordQueue).take(windowSize)
-      val updatedCounts = updatedQueue.foldLeft(wordCounts) { (counts, w) =>
-        counts.updated(w, counts.getOrElse(w, 0) + 1)
-      }
 
+      // Use scanLeft to create a cumulative count of words
+      val updatedCounts = updatedQueue.iterator.scanLeft(wordCounts) {
+        case (counts, w) => counts.updated(w, counts.getOrElse(w, 0) + 1)
+      }.toList.last
+
+      // Handle removal of the oldest word if the queue exceeds the window size
       val newCounts = if (updatedQueue.size > windowSize) {
         val oldestWord = updatedQueue.last
         val newCount = updatedCounts.getOrElse(oldestWord, 1) - 1
@@ -87,7 +91,6 @@ object newMain extends WordCloudVisualizer with WordCloudRunner {
     // Handle SIGPIPE to prevent termination on broken pipe
     Signal.handle(new Signal("PIPE"), new SignalHandler {
       override def handle(signal: Signal): Unit = {
-        // Do nothing or log a message if needed
         logger.nn.warn("Received SIGPIPE, ignoring.")
       }
     })
