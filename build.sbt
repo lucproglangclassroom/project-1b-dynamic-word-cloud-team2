@@ -18,7 +18,12 @@ libraryDependencies ++= Seq(
   "org.openjfx" % "javafx-controls" % "17",
   "org.openjfx" % "javafx-fxml" % "17",
   "org.jfree" % "jfreechart" % "1.5.3",
-  "org.slf4j" % "slf4j-api" % "1.7.36"
+  "org.slf4j" % "slf4j-api" % "1.7.36",
+  "junit" % "junit" % "4.13.2" % Test,
+  "com.lihaoyi" %% "mainargs" % "0.6.3",
+  "org.slf4j" % "slf4j-simple" % "1.7.30",
+  "org.apache.commons" % "commons-collections4" % "4.4", // Adjust version if needed
+  "org.log4s" %% "log4s" % "1.10.0" // Adjust version if needed
 )
 
 enablePlugins(JavaAppPackaging)
