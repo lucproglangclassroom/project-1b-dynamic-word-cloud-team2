@@ -143,7 +143,7 @@ object newMain extends ArgumentParser with Visualizer {
               stepCount = 0 // Reset step count
             } catch {
               case e: IOException =>
-                logger.nn.error("Caught IOException while writing to output: ", e)
+                logger.error("Caught IOException while writing to output: ", e)
               case _: SocketException =>
                 logger.nn.error("SocketException: writing to a closed socket (SIGPIPE caught). Exiting gracefully.")
                 // Handle graceful exit if necessary
