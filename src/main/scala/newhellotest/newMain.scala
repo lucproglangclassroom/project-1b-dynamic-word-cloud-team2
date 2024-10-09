@@ -143,7 +143,7 @@ object newMain extends ArgumentParser with Visualizer {
               stepCount = 0 // Reset step count
             } catch {
               case e: IOException =>
-                logger.error("Caught IOException while writing to output: ", e)
+                logger.nn.error("Caught IOException while writing to output: ", e)
               case _: SocketException =>
                 logger.nn.error("SocketException: writing to a closed socket (SIGPIPE caught). Exiting gracefully.")
                 // Handle graceful exit if necessary
@@ -234,7 +234,10 @@ object newMain extends ArgumentParser with Visualizer {
     // Create a BufferedImage and draw the chart on it
     val bufferedImage = chart.nn.createBufferedImage(800, 600)
     try {
-      ImageIO.write(bufferedImage, "png", new File("word_cloud_bar_chart.png"))
+      val success = ImageIO.write(bufferedImage, "png", new File("word_cloud_bar_chart.png"))
+      if (!success) {
+        println("Failed to save the bar chart image.")
+      }
     } catch {
       case e: Exception => e.printStackTrace()
     }
