@@ -248,11 +248,15 @@ object newMain extends ArgumentParser with Visualizer {
 class WordCloud(val maxWords: Int, val minLength: Int, val windowSize: Int, val ignoreList: Set[String], val minFrequency: Int) extends WordCloudProcessor {
   private val wordCount = mutable.Map[String, Int]().withDefaultValue(0)
 
-  def addWord(word: String): Unit = {
-    if (!ignoreList.contains(word) && word.length >= minLength) {
-      wordCount(word) += 1
+   def addWord(word: String): Unit = {
+      if (!ignoreList.contains(word) && word.length >= minLength) {
+        // Use scanLeft to accumulate the count
+        val updatedCounts = Iterator(word).scanLeft(wordCount(word)) {
+          case (count, _) => count + 1
+        }
+        wordCount(word) = updatedCounts.next() // Set the new count
+      }
     }
-  }
 
   def isReady: Boolean = wordCount.size >= minFrequency
 
