@@ -15,6 +15,8 @@ import org.jfree.chart.plot.PlotOrientation
 import org.jfree.data.category.DefaultCategoryDataset
 import java.io.IOException
 import java.net.SocketException
+import sun.misc.Signal
+import sun.misc.SignalHandler
 
 // Configuration case class
 case class Config(
@@ -49,6 +51,14 @@ object newMain extends ArgumentParser with Visualizer {
   val logger = LoggerFactory.getLogger(newMain.getClass)
 
   def main(args: Array[String]): Unit = {
+
+    // Handle SIGPIPE to prevent termination on broken pipe
+    Signal.handle(new Signal("PIPE"), new SignalHandler {
+      override def handle(signal: Signal): Unit = {
+        logger.nn.warn("Received SIGPIPE, ignoring.")
+      }
+    })
+
     System.setProperty("java.awt.headless", "true") // Enable headless mode for environments without GUI
     val config = parseArguments(args).getOrElse {
       sys.exit(1) // Exit if argument parsing fails
