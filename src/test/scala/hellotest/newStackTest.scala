@@ -11,7 +11,7 @@ import scala.concurrent.duration._
 
 import org.scalatest.matchers.should.Matchers
 
-class StackTest extends AnyFlatSpec with Matchers with TimeLimits {
+class newStackTest extends AnyFlatSpec with Matchers with TimeLimits {
 
   
   "The WordCloud" should "handle heavy load without significant performance degradation" in {
@@ -39,19 +39,19 @@ class StackTest extends AnyFlatSpec with Matchers with TimeLimits {
     Duration.fromNanos(end - start).asInstanceOf[FiniteDuration] // Cast to FiniteDuration
   }
 
-  // "The argument parser" should "correctly parse valid arguments" in {
-  //   val args = Array("--cloud-size", "15", "--length-at-least", "5", "--window-size", "500", "--min-frequency", "2")
-  //   val config = newMain.parseArguments(args)
+//   "The argument parser" should "correctly parse valid arguments" in {
+//     val args = Array("--cloud-size", "15", "--length-at-least", "5", "--window-size", "500", "--min-frequency", "2")
+//     val config = newMain.parseArguments(args)
 
-  //   config must not be empty
-  //   val cfg = config.get
-  //   cfg.cloudSize must equal(15)
-  //   cfg.minLength must equal(5)
-  //   cfg.windowSize must equal(500)
-  //   cfg.minFrequency must equal(2)
-  // }
+//     config must not be empty
+//     val cfg = config.get
+//     cfg.cloudSize must equal(15)
+//     cfg.minLength must equal(5)
+//     cfg.windowSize must equal(500)
+//     cfg.minFrequency must equal(2)
+//   }
 
-  
+  ewMain Class Changes
 
   "Argument parser" should "parse valid arguments correctly" in {
     val args = Array("--cloud-size", "5", "--length-at-least", "4", "--window-size", "100", "--ignore-list", "ignore.txt")
