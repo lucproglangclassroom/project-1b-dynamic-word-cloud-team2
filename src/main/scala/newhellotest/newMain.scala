@@ -11,6 +11,8 @@ import java.awt.image.BufferedImage
 import javax.imageio.ImageIO
 import scala.util.Random
 import java.io.File
+import scala.collection.immutable.List // Import the correct List
+import scala.jdk.CollectionConverters._
 
 object newMain:
 
@@ -72,22 +74,43 @@ end newMain
 
 object WordCloud {
 
-  def processing(words: Iterator[String], cloud_size: Int, length_at_least: Int, window_size: Int, every_K: Int, min_frequency: Int, outputSink: OutputSink): Unit = {
+def processing(words: Iterator[String], cloud_size: Int, length_at_least: Int, window_size: Int, every_K: Int, min_frequency: Int, outputSink: OutputSink): Unit = {
 
-    val queue = new CircularFifoQueue[String](window_size)
-    var steps = 0 // Initialize to count steps
-    words.filter(_.length >= length_at_least).foreach { word =>
-      // Add the word to the queue
-      queue.add(word)
-      steps += 1 // Increment steps by 1 after word added to queue
+  // Function to process words recursively
+  def processWords(remainingWords: Iterator[String], queue: List[String], steps: Int): Unit = {
+    if (remainingWords.hasNext) {
+      val word = remainingWords.next()
 
-      // If the queue is full after adding the word AND steps >= k, call the fullQueue function on the queue. Additionally, reset steps.
-      if ((queue.isAtFullCapacity) && (steps >= every_K)) {
-        steps = 0
-        fullQueue(queue, cloud_size, min_frequency, outputSink)
+      // Only process the word if it meets the length requirement
+      if (word.length >= length_at_least) {
+        // Update the queue (add the new word and maintain the size)
+        val updatedQueue = (word :: queue).takeRight(window_size)
+
+        // Increment steps
+        val newSteps = steps + 1
+
+        // Check if the queue is full and steps are sufficient
+        if (updatedQueue.size == window_size && newSteps >= every_K) {
+          // Convert List[String] to CircularFifoQueue[String]
+          val circularQueue = new CircularFifoQueue[String](updatedQueue.asJava)
+          fullQueue(circularQueue, cloud_size, min_frequency, outputSink) // Pass CircularFifoQueue to fullQueue
+          
+          // Reset steps after processing
+          processWords(remainingWords, updatedQueue, 0)
+        } else {
+          // Continue processing with updated queue and steps
+          processWords(remainingWords, updatedQueue, newSteps)
+        }
+      } else {
+        // Continue processing without modifying queue or steps
+        processWords(remainingWords, queue, steps)
       }
     }
   }
+
+  // Start processing words with an empty queue and zero steps
+  processWords(words, List.empty[String], 0)
+}
 
   // Separate I/O and logic by creating OutputSink
   trait OutputSink {
