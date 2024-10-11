@@ -22,8 +22,9 @@ libraryDependencies ++= Seq(
   "junit" % "junit" % "4.13.2" % Test,
   "com.lihaoyi" %% "mainargs" % "0.6.3",
   "org.slf4j" % "slf4j-simple" % "1.7.30",
-  "org.apache.commons" % "commons-collections4" % "4.4", // Adjust version if needed
-  "org.log4s" %% "log4s" % "1.10.0" // Adjust version if needed
+  "org.apache.commons" % "commons-collections4" % "4.4",
+  "org.log4s" %% "log4s" % "1.10.0",
+  "org.knowm.xchart" % "xchart" % "3.8.0"
 )
 
 enablePlugins(JavaAppPackaging)
