@@ -11,6 +11,8 @@ import java.awt.image.BufferedImage
 import javax.imageio.ImageIO
 import scala.util.Random
 import java.io.File
+import scala.collection.immutable.List // Import the correct List
+import scala.jdk.CollectionConverters._
 
 object newMain:
 
@@ -23,14 +25,13 @@ object newMain:
 
   def main(args: Array[String]): Unit = {
     try {
-      ParserForMethods(this).runOrExit(args.toIndexedSeq) match { case _ => () } // Explicitly ignore the value
+      ParserForMethods(this).runOrExit(args.toIndexedSeq)
     } catch {
       case e: NumberFormatException =>
         System.err.println(e.getMessage)
         System.exit(4)
     }
   }
-
 
   @main
   def run(
@@ -75,19 +76,37 @@ object WordCloud {
 
   def processing(words: Iterator[String], cloud_size: Int, length_at_least: Int, window_size: Int, every_K: Int, min_frequency: Int, outputSink: OutputSink): Unit = {
 
-    val queue = new CircularFifoQueue[String](window_size)
-    var steps = 0 // Initialize to count steps
-    words.filter(_.length >= length_at_least).foreach { word =>
-      // Add the word to the queue
-      queue.add(word)
-      steps += 1 // Increment steps by 1 after word added to queue
+    // Create a state (a queue of words) and a step counter
+    val initialState = (List.empty[String], 0)
 
-      // If the queue is full after adding the word AND steps >= k, call the fullQueue function on the queue. Additionally, reset steps.
-      if ((queue.isAtFullCapacity) && (steps >= every_K)) {
-        steps = 0
-        fullQueue(queue, cloud_size, min_frequency, outputSink)
+    // Use scanLeft to process each word and maintain the state
+    val states = words
+      .flatMap { word =>
+        if (word.length >= length_at_least) Some(word) else None
       }
-    }
+      .scanLeft(initialState) { case ((queue, steps), word) =>
+        // Update the queue (add the new word and maintain the size)
+        val updatedQueue = (word :: queue).takeRight(window_size)
+
+        // Increment steps
+        val newSteps = steps + 1
+
+        // Check if the queue is full and steps are sufficient
+        if (updatedQueue.size == window_size && newSteps >= every_K) {
+          // Convert List[String] to CircularFifoQueue[String]
+          val circularQueue = new CircularFifoQueue[String](updatedQueue.asJava)
+          fullQueue(circularQueue, cloud_size, min_frequency, outputSink) // Pass CircularFifoQueue to fullQueue
+
+          // Return updated queue and reset steps
+          (updatedQueue, 0)
+        } else {
+          // Continue with updated queue and steps
+          (updatedQueue, newSteps)
+        }
+      }
+
+    // We don't need the initial state, so we can drop it
+    states.drop(1).foreach(_ => ()) // This forces the evaluation of the states for side effects
   }
 
   // Separate I/O and logic by creating OutputSink
@@ -193,9 +212,7 @@ object WordCloud {
     val bufferedImage = chart.createBufferedImage(800, 600)
     try {
       val success = ImageIO.write(bufferedImage, "png", new File("word_cloud_frequency_bar_chart.png"))
-      if (!success) {
-        println("Failed to save the bar chart image.")
-      }
+      if (!success) println("Failed to save the bar chart image.")
     } catch {
       case e: Exception => e.printStackTrace()
     }
