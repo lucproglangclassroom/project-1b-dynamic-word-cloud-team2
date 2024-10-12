@@ -23,13 +23,14 @@ object newMain:
 
   def main(args: Array[String]): Unit = {
     try {
-      ParserForMethods(this).runOrExit(args.toIndexedSeq)
+      ParserForMethods(this).runOrExit(args.toIndexedSeq) match { case _ => () } // Explicitly ignore the value
     } catch {
       case e: NumberFormatException =>
         System.err.println(e.getMessage)
         System.exit(4)
     }
   }
+
 
   @main
   def run(
