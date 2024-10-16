@@ -25,7 +25,8 @@ object Main:
 
   def main(args: Array[String]): Unit = {
     try {
-      ParserForMethods(this).runOrExit(args.toIndexedSeq)
+      ParserForMethods(this).runOrExit(args.toIndexedSeq) // Ignore the return value
+      ()
     } catch {
       case e: NumberFormatException =>
         System.err.println(e.getMessage)
@@ -43,15 +44,11 @@ object Main:
       @arg(short = 'i', doc = "path to ignore file") ignore_file: Option[String] = None,
       @arg(short = 't', doc = "path to input text file") input_file: Option[String] = None) = {
 
-    try {
-      Signal.handle(new Signal("PIPE"), _ => {
-        System.err.println("SIGPIPE detected. Terminating.")
-        System.exit(0)
-      })
-    } catch {
-      case e: IllegalArgumentException =>
-        System.err.println("Signal handling not supported on this platform.")
-    }
+    // Handle SIGPIPE
+    val _ = Signal.handle(new Signal("PIPE"), _ => {
+      System.err.println("SIGPIPE detected. Terminating.")
+      System.exit(0)
+    })
 
     val ignore: Set[String] = try {
       ignore_file match {
@@ -68,6 +65,7 @@ object Main:
       case Some(path) => scala.io.Source.fromFile(path).getLines()
       case None => scala.io.Source.stdin.getLines()
     }
+
     val words =
       lines.flatMap(l => l.split("(?U)[^\\p{Alpha}0-9']+")).map(_.toLowerCase).filter(word => !ignore.contains(word))
 
@@ -83,7 +81,7 @@ object Main:
 
     val logger = org.log4s.getLogger
     logger.debug(
-      f"Cloud Size = $cloud_size Length At Leasts = $length_at_least Window Size = $window_size Every K = $every_K Min Frequency = $min_frequency"
+      f"Cloud Size = $cloud_size Length At Least = $length_at_least Window Size = $window_size Every K = $every_K Min Frequency = $min_frequency"
     )
   }
 
@@ -93,6 +91,7 @@ object WordCloud {
 
   def processing(words: Iterator[String], cloud_size: Int, length_at_least: Int, window_size: Int, every_K: Int, min_frequency: Int, outputSink: OutputSink): Unit = {
     words.filter(_.length >= length_at_least).scanLeft((0, List.empty[String])) { case ((steps, queue), word) =>
+
       val newQueue = (queue :+ word).takeRight(window_size)
       val newSteps = steps + 1
 
@@ -112,15 +111,11 @@ object WordCloud {
 
   object myOutputSink extends OutputSink {
     def doOutput(value: Seq[(String, Int)]) = {
-      try {
+      handleOutput {
         val out = value.map { case (word, count) => s"$word: $count" }.mkString(" ")
         println(out)
         visualizeWordCloud(value)
         visualizeWordCloudBarChart(value)
-      } catch {
-        case _: java.io.IOException =>
-          System.err.println("Broken pipe error. Exiting")
-          System.exit(0)
       }
     }
   }
@@ -159,11 +154,9 @@ object WordCloud {
 
     graphics.dispose()
 
-    try {
+    handleOutput {
       val success = ImageIO.write(bufferedImage, "png", new File("word_cloud.png"))
       if (!success) println("Failed to save the word cloud image.")
-    } catch {
-      case e: Exception => e.printStackTrace()
     }
   }
 
@@ -182,11 +175,19 @@ object WordCloud {
     )
 
     val bufferedImage = chart.createBufferedImage(800, 600)
-    try {
+    handleOutput {
       val success = ImageIO.write(bufferedImage, "png", new File("word_cloud_frequency_bar_chart.png"))
       if (!success) println("Failed to save the bar chart image.")
+    }
+  }
+
+  private def handleOutput(action: => Unit): Unit = {
+    try {
+      action
     } catch {
-      case e: Exception => e.printStackTrace()
+      case _: java.io.IOException =>
+        System.err.println("Broken pipe error. Exiting")
+        System.exit(0)
     }
   }
 }
